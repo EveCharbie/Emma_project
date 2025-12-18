@@ -2,3 +2,7 @@
 .idea/
 
 Emma/
+
+.DS_Store
+
+*.bioMod

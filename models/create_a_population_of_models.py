@@ -1,8 +1,6 @@
 """
-This example shows how to create a batch of De Leva models within a range of anthropometry.
-This could be useful if you want for example assess the impact of anthropometry on a movement.
-Here, we want to create a population of female gymnasts performing acrobatics on the bars. Thus, the kinematic chain
-will also be modified to place the root segment at the hands.
+This file is used to create a batch of De Leva models within the range of anthropometry studied.
+These models will be used for the predictive simulations.
 """
 
 import os
@@ -10,21 +8,12 @@ import csv
 import numpy as np
 import itertools
 from biobuddy import (
-    Axis,
-    BiomechanicalModel,
-    C3dData,
-    Marker,
-    Mesh,
-    Segment,
-    SegmentCoordinateSystem,
-    Translations,
-    Rotations,
     DeLevaTable,
-    DeLevaTableTrunk3Parts,
     Sex,
-    SegmentName,
-    ViewAs,
-    SegmentCoordinateSystemUtils,
+    SegmentReal,
+    SegmentCoordinateSystemReal,
+    MeshReal,
+    MarkerReal,
     RotoTransMatrix,
     MergeSegmentsTool,
     SegmentMerge,
@@ -38,7 +27,7 @@ def create_hand_root_model(
     this_height,
     this_ankle_height,
     this_knee_height,
-    this_pelvis_height,
+    this_hip_height,
     this_shoulder_height,
     this_finger_span,
     this_wrist_span,
@@ -47,17 +36,17 @@ def create_hand_root_model(
     this_hip_width,
     this_foot_length,
     this_umbilicus_height,
-    this_nipple_height,
+    this_xiphoid_height,
     this_mass,
 ):
 
     # Create the inertial table for this model
-    inertia_table = DeLevaTableTrunk3Parts(this_mass, sex=Sex.FEMALE)
+    inertia_table = DeLevaTable(this_mass, sex=Sex.FEMALE)
     inertia_table.from_measurements(
         total_height=this_height,
         ankle_height=this_ankle_height,
         knee_height=this_knee_height,
-        pelvis_height=this_pelvis_height,
+        hip_height=this_hip_height,
         shoulder_height=this_shoulder_height,
         finger_span=this_finger_span,
         wrist_span=this_wrist_span,
@@ -65,8 +54,8 @@ def create_hand_root_model(
         shoulder_span=this_shoulder_span,
         hip_width=this_hip_width,
         foot_length=this_foot_length,
-        nipple_height=this_nipple_height,
         umbilicus_height=this_umbilicus_height,
+        xiphoid_height=this_xiphoid_height,
     )
 
     # Create the model
@@ -85,34 +74,64 @@ def create_hand_root_model(
     kinematic_chain_modifier = ModifyKinematicChainTool(merged_model)
     kinematic_chain_modifier.add(ChangeFirstSegment(first_segment_name="HANDS", new_segment_name="PELVIS"))
     hand_root_model = kinematic_chain_modifier.modify()
-    # hand_root_model.animate()
+
+    # Add asymmetric bars for visualization and constraints
+    lower_bar_scs = RotoTransMatrix()
+    lower_bar_scs.from_euler_angles_and_translation(
+        angle_sequence="xyz",
+        angles=np.array([0, 0, 0]),
+        translation=np.array([0, 0, 1.55])
+    )
+    hand_root_model.add_segment(
+        SegmentReal(
+            name="LowerBar",
+            segment_coordinate_system=SegmentCoordinateSystemReal(scs=lower_bar_scs),
+            mesh=MeshReal(positions=np.array([[0, 0, 0], [2.4, 0, 0]])),
+        )
+    )
+    hand_root_model.segments["LowerBar"].add_marker(
+        MarkerReal(
+            name="LowerBarMarker",
+            parent_name="LowerBar",
+        )
+    )
+
+    upper_bar_scs = RotoTransMatrix()
+    upper_bar_scs.from_euler_angles_and_translation(
+        angle_sequence="xyz",
+        angles=np.array([0, 0, 0]),
+        translation=np.array([0, 1.62, 2.35])
+    )
+    hand_root_model.add_segment(
+        SegmentReal(
+            name="UpperBar",
+            segment_coordinate_system=SegmentCoordinateSystemReal(scs=upper_bar_scs),
+            mesh=MeshReal(positions=np.array([[0, 0, 0], [2.4, 0, 0]])),
+        )
+    )
+    hand_root_model.segments["UpperBar"].add_marker(
+        MarkerReal(
+            name="UpperBarMarker",
+            parent_name="UpperBar",
+        )
+    )
+    hand_root_model.animate()
 
     return hand_root_model
 
 
 def main():
 
+    model_path = os.path.dirname(os.path.abspath(__file__))
+
     # Set the range of anthropometry that you want to create
     # TODO: set these as -std, -1/2std, mean, +1/2std, +std
-    # total_mass = [50, 60, 70, 80]  # Kg
-    # total_height = [1.50, 1.70, 1.90]  # m
-    # ankle_height = [0.01]  # m
-    # knee_height_coeff = [0.23, 0.25, 0.27]
-    # pelvis_height_coeff = [0.48, 0.49, 0.51]
-    # shoulder_height_coeff = [0.78, 0.80, 0.82]
-    # shoulder_width_coeff = [0.30, 0.32, 0.34]
-    # elbow_span_coeff = [0.63, 0.65, 0.67]
-    # wrist_span_coeff = [0.80, 0.82, 0.84]
-    # finger_span_coeff = [1.0, 1.02, 1.04]
-    # foot_length_coeff = [0.3, 0.32, 0.34]
-    # hip_width_coeff = [0.30, 0.32, 0.34]
-
     # when only one value, it's the mean coef
     total_mass = [46.7, 52.8, 61.2, 70.4]  # Kg
     total_height = [1.53, 1.64, 1.75]  # m
     ankle_height = [0.03]
     knee_height_coeff = [0.255, 0.279]
-    pelvis_height_coeff = [0.495, 0.513]
+    hip_height_coeff = [0.495, 0.513]
     shoulder_height_coeff = [0.792, 0.817, 0.831]
     shoulder_width_coeff = [0.201]
     elbow_span_coeff = [0.494, 0.539]
@@ -121,18 +140,29 @@ def main():
     foot_length_coeff = [0.106]
     hip_width_coeff = [0.191]
     umbilicus_heihgt_coeff = [0.596]
-    nipple_height_coeff = [0.739]
+    xiphoid_height_coeff = [0.739]
 
-    #create csv file to save which model has which coefficient
-    with open("model_coefficients.csv", mode="w", newline="") as csv_file:
+    # Create csv file to save which model has which coefficient
+    with open(f"{model_path}/model_coefficients.csv", mode="w", newline="") as csv_file:
         writer = csv.writer(csv_file, delimiter=";")
 
         # En-têtes
         writer.writerow([
-            "ModelNumber", "Mass", "Height",
-            "AnkleHeightCoeff", "KneeHeightCoeff", "PelvisHeightCoeff", "ShoulderHeightCoeff",
-            "ShoulderWidthCoeff", "ElbowSpanCoeff", "WristSpanCoeff", "FingerSpanCoeff",
-            "FootLengthCoeff", "HipWidthCoeff", "UmbilicusHeightCoeff","NippleHeightCoeff"
+            "ModelNumber",
+            "Mass",
+            "Height",
+            "AnkleHeightCoeff",
+            "KneeHeightCoeff",
+            "PelvisHeightCoeff",
+            "ShoulderHeightCoeff",
+            "ShoulderWidthCoeff",
+            "ElbowSpanCoeff",
+            "WristSpanCoeff",
+            "FingerSpanCoeff",
+            "FootLengthCoeff",
+            "HipWidthCoeff",
+            "UmbilicusHeightCoeff",
+            "XiphoidHeightCoeff"
         ])
 
         # Create all combinations using itertools.product
@@ -142,7 +172,7 @@ def main():
             total_height,
             ankle_height,
             knee_height_coeff,
-            pelvis_height_coeff,
+            hip_height_coeff,
             shoulder_height_coeff,
             shoulder_width_coeff,
             elbow_span_coeff,
@@ -151,14 +181,14 @@ def main():
             foot_length_coeff,
             hip_width_coeff,
             umbilicus_heihgt_coeff,
-            nipple_height_coeff,
+            xiphoid_height_coeff,
         ):
             (
                 this_mass,
                 this_height,
                 this_ankle_height_coeff,
                 this_knee_height_coeff,
-                this_pelvis_height_coeff,
+                this_hip_height_coeff,
                 this_shoulder_height_coeff,
                 this_shoulder_span_coeff,
                 this_elbow_span_coeff,
@@ -167,13 +197,13 @@ def main():
                 this_foot_length_coeff,
                 this_hip_width_coeff,
                 this_umbilicus_height_coeff,
-                this_nipple_height_coeff
+                this_xiphoid_height_coeff
             ) = combination
 
             # Get the measurements for this model
             this_ankle_height = this_ankle_height_coeff * this_height
             this_knee_height = this_knee_height_coeff * this_height
-            this_pelvis_height = this_pelvis_height_coeff * this_height
+            this_hip_height = this_hip_height_coeff * this_height
             this_shoulder_height = this_shoulder_height_coeff * this_height
             this_shoulder_span = this_shoulder_span_coeff * this_height
             this_elbow_span = this_elbow_span_coeff * this_height
@@ -182,13 +212,13 @@ def main():
             this_foot_length = this_foot_length_coeff * this_height
             this_hip_width = this_hip_width_coeff * this_height
             this_umbilicus_height = this_umbilicus_height_coeff * this_height
-            this_nipple_height = this_nipple_height_coeff * this_height
+            this_xiphoid_height = this_xiphoid_height_coeff * this_height
 
             hand_root_model = create_hand_root_model(
                 this_height,
                 this_ankle_height,
                 this_knee_height,
-                this_pelvis_height,
+                this_hip_height,
                 this_shoulder_height,
                 this_finger_span,
                 this_wrist_span,
@@ -197,12 +227,12 @@ def main():
                 this_hip_width,
                 this_foot_length,
                 this_umbilicus_height,
-                this_nipple_height,
+                this_xiphoid_height,
                 this_mass,
             )
 
             # Exporting the output model as a biomod file
-            hand_root_model.to_biomod(f"athlete_{model_number}_deleva.bioMod")
+            hand_root_model.to_biomod(f"{model_path}/athlete_{model_number:03d}_deleva.bioMod")
 
             writer.writerow([
                 model_number,
@@ -210,7 +240,7 @@ def main():
                 this_height,
                 this_ankle_height_coeff,
                 this_knee_height_coeff,
-                this_pelvis_height_coeff,
+                this_hip_height_coeff,
                 this_shoulder_height_coeff,
                 this_shoulder_span_coeff,
                 this_elbow_span_coeff,
@@ -219,13 +249,10 @@ def main():
                 this_foot_length_coeff,
                 this_hip_width_coeff,
                 this_umbilicus_height_coeff,
-                this_nipple_height_coeff,
+                this_xiphoid_height_coeff,
             ])
 
             model_number += 1
-
-
-
 
 
 if __name__ == "__main__":
