@@ -3,7 +3,7 @@ This file is used to create a batch of De Leva models within the range of anthro
 These models will be used for the predictive simulations.
 """
 
-import os
+from pathlib import Path
 import csv
 import numpy as np
 import itertools
@@ -115,14 +115,31 @@ def create_hand_root_model(
             parent_name="UpperBar",
         )
     )
-    hand_root_model.animate()
+
+    # Add markers on the feet for visualization and constraints
+    hand_root_model.segments["L_FOOT"].add_marker(
+        MarkerReal(
+            name="L_TOES",
+            parent_name="L_FOOT",
+            position=hand_root_model.segments["L_FOOT"].mesh.positions[:, 1]  # End of toes
+        )
+    )
+    hand_root_model.segments["R_FOOT"].add_marker(
+        MarkerReal(
+            name="R_TOES",
+            parent_name="R_FOOT",
+            position=hand_root_model.segments["R_FOOT"].mesh.positions[:, 1]  # End of toes
+        )
+    )
+    # hand_root_model.animate()
 
     return hand_root_model
 
 
 def main():
 
-    model_path = os.path.dirname(os.path.abspath(__file__))
+    current_path = Path(__file__).parent
+    model_path = f"{current_path}/biomod_models"
 
     # Set the range of anthropometry that you want to create
     # TODO: set these as -std, -1/2std, mean, +1/2std, +std
@@ -143,7 +160,7 @@ def main():
     xiphoid_height_coeff = [0.739]
 
     # Create csv file to save which model has which coefficient
-    with open(f"{model_path}/model_coefficients.csv", mode="w", newline="") as csv_file:
+    with open(f"{model_path}/../model_coefficients.csv", mode="w", newline="") as csv_file:
         writer = csv.writer(csv_file, delimiter=";")
 
         # En-têtes

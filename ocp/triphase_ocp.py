@@ -1,8 +1,11 @@
 import numpy as np
 import pandas as pd
 from casadi import MX, vertcat
+from pathlib import Path
 import os
 import pickle
+import git
+from datetime import date
 
 from bioptim import (
     Node,
@@ -88,8 +91,8 @@ class DynamicModel(TorqueBiorbdModel):
         if isinstance(nlp.dynamics_type.ode_solver, OdeSolver.COLLOCATION):
             slope_q = DynamicsFunctions.get(nlp.states_dot["q"], nlp.states_dot.scaled.cx)
             slope_qdot = DynamicsFunctions.get(nlp.states_dot["qdot"], nlp.states_dot.scaled.cx)
-            defects = vertcat(slope_q, slope_qdot) * nlp.dt - vertcat(qdot, qddot)* nlp.dt
-            #defects = vertcat(slope_q slope_qdot)  - vertcat(qdot, qddot),
+            # defects = vertcat(slope_q, slope_qdot) * nlp.dt - vertcat(qdot, qddot)* nlp.dt
+            defects = vertcat(slope_q, slope_qdot)  - vertcat(qdot, qddot),
 
         return DynamicsEvaluation(dxdt=vertcat(qdot, qddot), defects=defects)
 
@@ -220,7 +223,7 @@ def prepare_ocp(
     if init_sol is False:
         # avoid the lower bar
         constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.ALL, first_marker="LowerBarMarker",
-                            second_marker="MarkerR", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=1)
+                            second_marker="R_TOES", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=1)
 
         # impose the orientation of the pelvic during the descent phase
         if mode == "anteversion":
@@ -232,7 +235,7 @@ def prepare_ocp(
 
     # end of the first phase when the feet reach the height of the lower bar
     constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.END, first_marker="LowerBarMarker",
-                        second_marker="MarkerR", axes=Axis.Z, phase=0, min_bound=0.02, max_bound=0.02)
+                        second_marker="R_TOES", axes=Axis.Z, phase=0, min_bound=0.02, max_bound=0.02)
 
     #  symmetry of the thighs
     pairs = [
@@ -334,8 +337,6 @@ def save_sol(sol, filename):
         savename_sufix = "_DVG.pkl"
 
     # Get the Bioptim version used to generate the results
-    import git
-    from datetime import date
     repo = git.Repo(search_parent_directories=True)
     commit_id = str(repo.commit())
     branch = str(repo.active_branch)
@@ -434,7 +435,7 @@ def save_sol(sol, filename):
     from contextlib import redirect_stdout
     with open('out.txt', 'w') as f:
         with redirect_stdout(f):
-            sol.print_cost()  # TODO: but in any ways, the output of print is ofter buggy
+            sol.print_cost()  # TODO: but in any ways, the output of print is often buggy
 
     data["status"] = sol.status
     data["version_dic"] = version_dic
@@ -478,26 +479,37 @@ def save_sol(sol, filename):
 
 def main():
 
-    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-    RESULTS_DIR = os.path.join(CURRENT_DIR, "applied_examples/results")
+    CURRENT_DIR = Path(__file__).parent.resolve()
+    RESULTS_DIR = f"{CURRENT_DIR}/results"
     use_pkl = False
 
     n_shooting = (50, 50, 50)
 
-    for num in [40]:    #range(576):
+    for num in [1]:    #range(576):
 
-        filename = f"/applied_examples/athlete_{num}_deleva.bioMod"
+        filename = f"{CURRENT_DIR}/../models/biomod_models/athlete_{num:03d}_deleva.bioMod"
         print("model : ", filename)
-        masses = pd.read_csv(CURRENT_DIR+ "/applied_examples/masses.csv")
+        masses = pd.read_csv(f"{CURRENT_DIR}/../models/masses.csv")
         masse = masses["total_mass"][num-1]
 
         # initial solution
-        if use_pkl is False or not os.path.exists(os.path.join(RESULTS_DIR, f"athlete{num}_base.pkl")):
+        if use_pkl is False or not os.path.exists(f"{RESULTS_DIR}/athlete{num}_base.pkl"):
 
-            ocp = prepare_ocp(biorbd_model_path=CURRENT_DIR + filename, final_time=(1, 0.5, 1),
-                              n_shooting=n_shooting, min_time=0.2, max_time=2, coef_fig=1, total_mass=masse,
-                              init_sol=True, weight_control=1, weight_time=0.1,final_state_bound=True, n_threads=16,
-                              use_sx=True)
+            ocp = prepare_ocp(
+                biorbd_model_path=filename,
+                final_time=(1, 0.5, 1),
+                n_shooting=n_shooting,
+                min_time=0.2,
+                max_time=2,
+                coef_fig=1,
+                total_mass=masse,
+                init_sol=True,
+                weight_control=1,
+                weight_time=0.1,
+                final_state_bound=True,
+                n_threads=16,
+                use_sx=True,
+            )
             #todo compare final_state_bound=True vs False ... False should be faster
             # --- Live plots --- #
             ocp.add_plot_penalty(CostType.ALL)  # This will display the objectives and constraints at the current iteration
@@ -507,7 +519,7 @@ def main():
 
             # --- Solve the ocp --- #
             solver = Solver.IPOPT(show_online_optim=False)
-            solver.set_linear_solver("ma57")
+            # solver.set_linear_solver("ma57")
             # solver.set_hessian_approximation("limited-memory")
             solver.set_bound_frac(1e-8)
             solver.set_bound_push(1e-8)
@@ -518,12 +530,12 @@ def main():
             sol = ocp.solve(solver)
             print("solving finished")
 
-            save_sol(sol, os.path.join(RESULTS_DIR, f"athlete{num}"))
+            save_sol(sol, f"{RESULTS_DIR}/athlete_{num:03d}")
 
 
         ######################################################################################################################################################
         print("load initial solution")
-        with open(os.path.join(RESULTS_DIR, f"athlete{num}_basic_variables_CVG.pkl"), "rb") as file:
+        with open(f"{RESULTS_DIR}/athlete_{num:03d}_basic_variables_CVG.pkl", "rb") as file:
             prev_sol_data = pickle.load(file)
 
         qs = prev_sol_data["q"]
@@ -546,8 +558,8 @@ def main():
 
         for mode in ['anterversion', 'retroversion']:
 
-            if use_pkl is False or not os.path.exists(os.path.join(RESULTS_DIR, f"athlete{num}_complet_{mode}_basic_variables_CVG.pkl")):
-            #mode = "retroversion" # "anteversion"
+            if use_pkl is False or not os.path.exists(f"{RESULTS_DIR}/athlete_{num:03d}_full_{mode}_basic_variables_CVG.pkl"):
+                #mode = "retroversion" # "anteversion"
 
                 # solution complete
                 ocp = prepare_ocp(biorbd_model_path=CURRENT_DIR + filename, final_time=(1, 0.5, 1), n_shooting=n_shooting,
@@ -567,7 +579,7 @@ def main():
                 solver.set_maximum_iterations(20000)
                 sol = ocp.solve(solver)
 
-                save_sol(sol, os.path.join(RESULTS_DIR, f"athlete{num}_complet_{mode}"))
+                save_sol(sol, f"{RESULTS_DIR}/athlete_{num:03d}_full_{mode}")
                 print("object solution of full solution saved")
 
             # --- Animate the solution --- #
