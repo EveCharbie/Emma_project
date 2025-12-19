@@ -19,6 +19,10 @@ from biobuddy import (
     SegmentMerge,
     ModifyKinematicChainTool,
     ChangeFirstSegment,
+    Translations,
+    Rotations,
+    RangeOfMotion,
+    Ranges,
 )
 
 
@@ -74,6 +78,72 @@ def create_hand_root_model(
     kinematic_chain_modifier = ModifyKinematicChainTool(merged_model)
     kinematic_chain_modifier.add(ChangeFirstSegment(first_segment_name="HANDS", new_segment_name="PELVIS"))
     hand_root_model = kinematic_chain_modifier.modify()
+    # PLace the hands on the bar
+    hand_root_model.segments["HANDS"].segment_coordinate_system.scs.translation = np.array([0, 1.2, 0])
+
+    # Modify the degrees of freedom
+    hand_root_model.segments["HANDS"].translations = Translations.XZ
+    hand_root_model.segments["HANDS"].rotations = Rotations.Y
+    hand_root_model.segments["HANDS"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([-0.3, -0.3, -2*np.pi]),
+        max_bound=np.array([0.3, 0.3, 2*np.pi]),
+    )
+    hand_root_model.segments["LOWER_ARMS"].rotations = Rotations.NONE
+    hand_root_model.segments["UPPER_ARMS"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([-2*np.pi/9]),
+        max_bound=np.array([0]),
+    )
+    hand_root_model.segments["UPPER_TRUNK"].rotations = Rotations.Y
+    hand_root_model.segments["UPPER_TRUNK"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([-2*np.pi/9]),
+        max_bound=np.array([0]),
+    )
+    hand_root_model.segments["MID_TRUNK"].rotations = Rotations.NONE
+    hand_root_model.segments["LOWER_TRUNK"].rotations = Rotations.Y
+    hand_root_model.segments["LOWER_TRUNK"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([-np.pi/18]),
+        max_bound=np.array([np.pi/6]),
+    )
+    hand_root_model.segments["HEAD"].rotations = Rotations.Y
+    hand_root_model.segments["HEAD"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([-np.pi/3]),
+        max_bound=np.array([5*np.pi/18]),
+    )
+    hand_root_model.segments["R_THIGH"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([-2 * np.pi / 9, -np.pi / 3]),
+        max_bound=np.array([0, np.pi / 6]),
+    )
+    hand_root_model.segments["R_SHANK"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([0, -np.pi / 3]),
+        max_bound=np.array([5*np.pi/6, np.pi / 6]),
+    )
+    hand_root_model.segments["R_FOOT"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([-np.pi / 2]),
+        max_bound=np.array([0]),
+    )
+    hand_root_model.segments["L_THIGH"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([0, -np.pi / 3]),
+        max_bound=np.array([2*np.pi/9, np.pi / 6]),
+    )
+    hand_root_model.segments["L_SHANK"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([0]),
+        max_bound=np.array([5*np.pi/6]),
+    )
+    hand_root_model.segments["L_FOOT"].q_ranges = RangeOfMotion(
+        range_type=Ranges.Q,
+        min_bound=np.array([-np.pi/2]),
+        max_bound=np.array([0]),
+    )
 
     # Add asymmetric bars for visualization and constraints
     lower_bar_scs = RotoTransMatrix()
@@ -86,13 +156,19 @@ def create_hand_root_model(
         SegmentReal(
             name="LowerBar",
             segment_coordinate_system=SegmentCoordinateSystemReal(scs=lower_bar_scs),
-            mesh=MeshReal(positions=np.array([[0, 0, 0], [2.4, 0, 0]])),
+            mesh=MeshReal(positions=np.array([
+                [0, 0, -1.55],
+                [0, 0, 0],
+                [0, 2.4, 0],
+                [0, 2.4, -1.55]
+            ])),
         )
     )
     hand_root_model.segments["LowerBar"].add_marker(
         MarkerReal(
             name="LowerBarMarker",
             parent_name="LowerBar",
+            position=np.array([0, 0, 0])
         )
     )
 
@@ -106,13 +182,19 @@ def create_hand_root_model(
         SegmentReal(
             name="UpperBar",
             segment_coordinate_system=SegmentCoordinateSystemReal(scs=upper_bar_scs),
-            mesh=MeshReal(positions=np.array([[0, 0, 0], [2.4, 0, 0]])),
+            mesh=MeshReal(positions=np.array([
+                [0, 0, -2.35],
+                [0, 0, 0],
+                [0, 2.4, 0],
+                [0, 2.4, -2.35]
+            ])),
         )
     )
     hand_root_model.segments["UpperBar"].add_marker(
         MarkerReal(
             name="UpperBarMarker",
             parent_name="UpperBar",
+            position=np.array([0, 0, 0])
         )
     )
 
