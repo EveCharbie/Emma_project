@@ -32,6 +32,7 @@ from bioptim import (
     DynamicsOptions,
     TorqueBiorbdModel,
     ObjectiveWeight,
+    SolutionIntegrator,
 )
 
 #Define the stiffness and damping of the bar as global variables
@@ -103,17 +104,14 @@ def prepare_ocp(
         n_shooting: tuple,
         min_time: float,
         max_time: float,
-        total_mass: float,
         init_sol: bool,
         final_state_bound: bool,
         coef_fig : int,
         weight_control: float,
         weight_time: float = 1,
         mode: str="",         ode_solver: OdeSolverBase = OdeSolver.RK4(),
-        use_sx: bool = False,
         n_threads: int = 1,
         phase_dynamics: PhaseDynamics = PhaseDynamics.SHARED_DURING_THE_PHASE,
-        expand_dynamics: bool = True,
         control_type: ControlType = ControlType.CONSTANT,
         x_init: InitialGuessList = None,
         u_init: InitialGuessList = None,
@@ -133,8 +131,6 @@ def prepare_ocp(
         The minimum time allowed for the final node
     max_time: float
         The maximum time allowed for the final node
-    total_mass : float
-        The mass of the athlete
     init_sol : bool
         If it computes an initial solution
     final_state_bound : bool
@@ -149,8 +145,6 @@ def prepare_ocp(
         Specifies the orientation of the pelvic during the descent phase
     ode_solver: OdeSolverBase = OdeSolver.RK4()
         Which type of OdeSolver to use
-    use_sx: bool
-        If the SX variable should be used instead of MX (can be extensive on RAM)
     n_threads: int
         The number of threads to use in the paralleling (1 = no parallel computing)
     phase_dynamics: PhaseDynamics
@@ -158,10 +152,6 @@ def prepare_ocp(
         PhaseDynamics.SHARED_DURING_THE_PHASE is much faster, but lacks the capability to have changing dynamics within
         a phase. A good example of when PhaseDynamics.ONE_PER_NODE should be used is when different external forces
         are applied at each node
-    expand_dynamics: bool
-        If the dynamics function should be expanded. Please note, this will solve the problem faster, but will slow down
-        the declaration of the OCP, so it is a trade-off. Also depending on the solver, it may or may not work
-        (for instance IRK is not compatible with expanded dynamics)
     control_type: ControlType
         The type of the controls
     x_init : InitialGuessList
@@ -176,6 +166,7 @@ def prepare_ocp(
     bio_model = (DynamicModel(biorbd_model_path), DynamicModel(biorbd_model_path), DynamicModel(biorbd_model_path))
 
     n_tau = bio_model[0].nb_tau
+    total_mass = float(bio_model[0].mass()()["mass"])
 
     # Index of useful degrees of freedom
     names = ["TxHands", "TzHands", "RyHands",
@@ -212,7 +203,7 @@ def prepare_ocp(
     dynamics = DynamicsOptionsList()
     for phase in range(3):
         dynamics.add(DynamicsOptions(
-            expand_dynamics=expand_dynamics,
+            expand_dynamics=False,
             phase_dynamics=phase_dynamics,
             ode_solver=OdeSolver.COLLOCATION(method="radau", polynomial_degree=5)
         ))
@@ -264,7 +255,7 @@ def prepare_ocp(
     x_bounds[0]["qdot"][:, 0] = 0  # speeds start at 0
     x_bounds[1]["q"][idx["RyHands"], -1] = -np.pi # end of second phase with hands under the upper bar
 
-    if final_state_bound :
+    if final_state_bound:
         x_bounds[2]["q"][3:, -1] = 0
         x_bounds[2]["q"][idx["RyHands"], -1] = -2 * np.pi   # ends with hands 360° rotated
         x_bounds[2]["qdot"][idx["RyHands"], -1] = - np.pi  # ends with hands speed of pi rad/s
@@ -273,7 +264,6 @@ def prepare_ocp(
         constraint_list.add(ConstraintFcn.BOUND_STATE, key="q", node=Node.END, index=idx["RyHands"], min_bound=-2 * np.pi, max_bound=-2 * np.pi, phase=2)
         constraint_list.add(ConstraintFcn.BOUND_STATE, key="q", node=Node.END, index=idx_final_state, min_bound=0, max_bound=0, phase=2)
         constraint_list.add(ConstraintFcn.BOUND_STATE, key="qdot", node=Node.END, index=idx["RyHands"], min_bound=- np.pi-0.1, max_bound=- np.pi+0.1, phase=2)
-
 
     # Define control path bounds
     tau_min, tau_max = (-200, 200)
@@ -292,7 +282,6 @@ def prepare_ocp(
     for phase in range(3):
         u_bounds.add("tau", min_bound=u_min, max_bound=u_max, phase=phase)
 
-
     if x_init is None:
         rotations = [-2 * np.pi / 45, np.pi / 3, np.pi, -2 * np.pi]
         x_init = InitialGuessList()
@@ -304,13 +293,10 @@ def prepare_ocp(
             x_init.add("q", init_q, phase=phase, interpolation=InterpolationType.LINEAR)
             x_init.add("qdot", [0] * bio_model[0].nb_qdot, phase=phase)
 
-
-
     if u_init is None:
         u_init = InitialGuessList()
         for phase in range(3):
             u_init.add("tau", [0] * bio_model[0].nb_tau, phase=phase)
-
 
     return OptimalControlProgram(
         bio_model,
@@ -322,7 +308,7 @@ def prepare_ocp(
         x_bounds=x_bounds,
         u_bounds=u_bounds,
         objective_functions=objective_functions,
-        use_sx=use_sx,
+        use_sx=False,
         n_threads=n_threads,
         control_type=control_type,
         constraints=constraint_list,
@@ -340,14 +326,14 @@ def save_sol(sol, filename):
     repo = git.Repo(search_parent_directories=True)
     commit_id = str(repo.commit())
     branch = str(repo.active_branch)
-    tag = repo.git.describe("--tags")
+    # tag = repo.git.describe("--tags")
     bioptim_version = repo.git.version_info
     git_date = repo.git.log("-1", "--format=%cd")
     version_dic = {
         "commit_id": commit_id,
         "git_date": git_date,
         "branch": branch,
-        "tag": tag,
+        # "tag": tag,
         "bioptim_version": bioptim_version,
         "date_of_the_optimization": date.today().strftime("%b-%d-%Y-%H-%M-%S"),
     }
@@ -356,22 +342,19 @@ def save_sol(sol, filename):
     time = sol.stepwise_time(to_merge=[SolutionMerge.NODES, SolutionMerge.PHASES]).T[0]
     qs = sol.decision_states(to_merge=[SolutionMerge.NODES])[0]['q']
     qdots = sol.decision_states(to_merge=[SolutionMerge.NODES])[0]['qdot']
-    taus = sol.decision_states(to_merge=[SolutionMerge.NODES])[0]['tau']
     for i in range(1, len(sol.decision_states(to_merge=[SolutionMerge.NODES]))):
         qs = np.hstack((qs, sol.decision_states(to_merge=[SolutionMerge.NODES])[i]['q']))
         qdots = np.hstack((qdots, sol.decision_states(to_merge=[SolutionMerge.NODES])[i]['qdot']))
-        taus = np.hstack((taus, sol.decision_states(to_merge=[SolutionMerge.NODES])[i]['tau']))
 
-    taudots = sol.decision_controls(to_merge=[SolutionMerge.NODES])[0]['taudot']
+    taus = sol.decision_controls(to_merge=[SolutionMerge.NODES])[0]['tau']
     for i in range(1, len(sol.decision_controls(to_merge=[SolutionMerge.NODES]))):
-        taudots = np.hstack((taus, sol.decision_controls(to_merge=[SolutionMerge.NODES])[i]['taudot']))
+        taus = np.hstack((taus, sol.decision_controls(to_merge=[SolutionMerge.NODES])[i]['tau']))
 
     with open(filename + "_basic_variables" + savename_sufix, "wb") as file:
         data = {
             "time": time,
             "q": qs, "qdot": qdots,
             "tau": taus,
-            "taudots": taudots,
             "version_dic": version_dic,
         }
         pickle.dump(data, file)
@@ -386,7 +369,6 @@ def save_sol(sol, filename):
     q = []
     qdot = []
     tau = []
-    taudot = []
     time = []
     min_bounds_q = []
     max_bounds_q = []
@@ -394,28 +376,22 @@ def save_sol(sol, filename):
     max_bounds_qdot = []
     min_bounds_tau = []
     max_bounds_tau = []
-    min_bounds_taudot = []
-    max_bounds_taudot = []
 
     for i in range(len(states)):
         q.append(states[i]["q"])
         qdot.append(states[i]["qdot"])
-        tau.append(states[i]["tau"])
-        taudot.append(controls[i]["taudot"])
+        tau.append(controls[i]["tau"])
         time.append(list_time[i])
         min_bounds_q.append(sol.ocp.nlp[i].x_bounds["q"].min)
         max_bounds_q.append(sol.ocp.nlp[i].x_bounds["q"].max)
         min_bounds_qdot.append(sol.ocp.nlp[i].x_bounds["qdot"].min)
         max_bounds_qdot.append(sol.ocp.nlp[i].x_bounds["qdot"].max)
-        min_bounds_tau.append(sol.ocp.nlp[i].x_bounds["tau"].min)
-        max_bounds_tau.append(sol.ocp.nlp[i].x_bounds["tau"].max)
-        min_bounds_taudot.append(sol.ocp.nlp[i].u_bounds["taudot"].min)
-        max_bounds_taudot.append(sol.ocp.nlp[i].u_bounds["taudot"].max)
+        min_bounds_tau.append(sol.ocp.nlp[i].u_bounds["tau"].min)
+        max_bounds_tau.append(sol.ocp.nlp[i].u_bounds["tau"].max)
 
     data["q"] = q
     data["qdot"] = qdot
     data["tau"] = tau
-    data["taudot"] = taudot
     data["time"] = time
     data["min_bounds_q"] = min_bounds_q
     data["max_bounds_q"] = max_bounds_q
@@ -423,14 +399,12 @@ def save_sol(sol, filename):
     data["max_bounds_qdot"] = max_bounds_qdot
     data["min_bounds_tau"] = min_bounds_tau
     data["max_bounds_tau"] = max_bounds_tau
-    data["min_bounds_taudot"] = min_bounds_taudot
-    data["max_bounds_taudot"] = max_bounds_taudot
 
     data["cost"] = sol.cost
     data["iterations"] = sol.iterations
 
     # TODO: check this
-    data["detailed_cost"] = sol.add_detailed_cost
+    data["detailed_cost"] = sol.detailed_cost
     # Otherwise redirect the print output
     from contextlib import redirect_stdout
     with open('out.txt', 'w') as f:
@@ -462,10 +436,16 @@ def save_sol(sol, filename):
     data["time_total"] = time_total
     data["time_end_phase"] = time_end_phase
 
-    integrated_sol = sol.integrate(to_merge=SolutionMerge.NODES)
-    data["q_integrated"] = integrated_sol["q"]
-    data["qdot_integrated"] = integrated_sol["qdot"]
-    data["tau_integrated"] = integrated_sol["tau"]
+    integrated_sol = sol.integrate(integrator=SolutionIntegrator.SCIPY_DOP853, to_merge=SolutionMerge.NODES)
+
+    qs_integrated = integrated_sol[0]['q']
+    qdots_integrated = integrated_sol[0]['qdot']
+    for i in range(1, len(integrated_sol)):
+        qs_integrated = np.hstack((qs_integrated, integrated_sol[i]['q']))
+        qdots_integrated = np.hstack((qdots_integrated, integrated_sol[i]['qdot']))
+
+    data["qs_integrated"] = qs_integrated
+    data["qdots_integrated"] = qdots_integrated
 
     with open(filename + "_full_results" + savename_sufix, "wb") as file:
         pickle.dump(data, file)
@@ -489,8 +469,6 @@ def main():
 
         filename = f"{CURRENT_DIR}/../models/biomod_models/athlete_{num:03d}_deleva.bioMod"
         print("model : ", filename)
-        masses = pd.read_csv(f"{CURRENT_DIR}/../models/masses.csv")
-        masse = masses["total_mass"][num-1]
 
         # initial solution
         if use_pkl is False or not os.path.exists(f"{RESULTS_DIR}/athlete{num}_base.pkl"):
@@ -502,13 +480,11 @@ def main():
                 min_time=0.2,
                 max_time=2,
                 coef_fig=1,
-                total_mass=masse,
                 init_sol=True,
                 weight_control=1,
                 weight_time=0.1,
                 final_state_bound=True,
                 n_threads=16,
-                use_sx=True,
             )
             #todo compare final_state_bound=True vs False ... False should be faster
             # --- Live plots --- #
@@ -519,7 +495,7 @@ def main():
 
             # --- Solve the ocp --- #
             solver = Solver.IPOPT(show_online_optim=False)
-            # solver.set_linear_solver("ma57")
+            solver.set_linear_solver("ma57")
             # solver.set_hessian_approximation("limited-memory")
             solver.set_bound_frac(1e-8)
             solver.set_bound_push(1e-8)
@@ -563,8 +539,8 @@ def main():
 
                 # solution complete
                 ocp = prepare_ocp(biorbd_model_path=CURRENT_DIR + filename, final_time=(1, 0.5, 1), n_shooting=n_shooting,
-                                  min_time=0.01, max_time=2, total_mass=masse, init_sol=False, weight_control=0.0001, weight_time=1,
-                                  coef_fig=1,final_state_bound=False, mode=mode, n_threads=16, use_sx=True)
+                                  min_time=0.01, max_time=2, init_sol=False, weight_control=0.0001, weight_time=1,
+                                  coef_fig=1,final_state_bound=False, mode=mode, n_threads=16)
 
 
                 # --- Live plots --- #

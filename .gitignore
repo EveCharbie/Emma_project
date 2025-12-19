@@ -6,3 +6,9 @@ Emma/
 .DS_Store
 
 *.bioMod
+
+*.csv
+
+*.txt
+
+*.pkl

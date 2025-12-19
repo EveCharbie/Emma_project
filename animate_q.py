@@ -7,18 +7,18 @@ import matplotlib.pyplot as plt
 from pyorerun import BiorbdModel, PhaseRerun
 
 import os
+from pathlib import Path
 import pickle
 
-athlete = 1
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_DIR = os.path.join(CURRENT_DIR, "applied_examples", "results4")  # <- bon dossier
-modelname = os.path.join(CURRENT_DIR, "applied_examples", f"athlete_{athlete}_deleva.bioMod")
+athlete_num = 1
+mode = "base"  # "retroversion"  # "anteversion"  # "base"
+
+CURRENT_DIR = Path(__file__).parent.absolute()
+RESULTS_DIR = f"{CURRENT_DIR}/ocp/results/athlete_{athlete_num:03d}"
+modelname = f"{CURRENT_DIR}/models/biomod_models/athlete_{athlete_num:03d}_deleva.bioMod"
 model = BiorbdModel(modelname)
 
-
-file_pkl = os.path.join(RESULTS_DIR, f"athlete{athlete}_base.pkl")#
-# file_pkl = os.path.join(RESULTS_DIR, f"athlete{athlete}_retroversion.pkl")
-# file_pkl = os.path.join(RESULTS_DIR, f"athlete{athlete}_anteversion.pkl")
+file_pkl = f"{RESULTS_DIR}/athlete{athlete_num:03d}_{mode}_CVG.pkl"
 
 if not os.path.exists(file_pkl) or os.path.getsize(file_pkl) == 0:
     raise FileNotFoundError(f"Fichier absent ou vide: {file_pkl}")
@@ -26,13 +26,11 @@ if not os.path.exists(file_pkl) or os.path.getsize(file_pkl) == 0:
 with open(file_pkl, "rb") as f:
     data = pickle.load(f)
 
-qs    = data[0]["q"]
-qdots = data[0]["qdot"]
-taus  = data[0]["tau"]
-time  = data[0]["time"]         # <- tu sauvegardes 'time' dans tes pkl
-# taudots = data["taudot"]   # <- supprimé: cette clé n'existe pas dans tes pkl
-
-n_shooting = (25, 25, 60)
+qs    = data["q_all"]
+qdots = data["qdot_all"]
+taus  = data["tau_all"]
+time  = data["time_all"]
+n_shooting = data["n_shooting"]
 
 
 def plot_all_dofs(modelname: str, time: np.ndarray, data: np.ndarray,
@@ -77,7 +75,6 @@ def plot_all_dofs(modelname: str, time: np.ndarray, data: np.ndarray,
 
 plot_all_dofs(modelname, time,qs, type='states', title="q")
 plot_all_dofs(modelname, time,qdots,type='states',title="qdot")
-#plot_all_dofs(modelname, time,taus,type='states',title="tau")
 plot_all_dofs(modelname, time, taus, type='controls',title="tau")
 
 
