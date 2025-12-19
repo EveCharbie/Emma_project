@@ -45,8 +45,7 @@ def plot_all_dofs(modelname: str, time: np.ndarray, data: np.ndarray,
     names = model.dof_names
     n_q = data.shape[0]
 
-    # grille carrée ~√n
-
+    # Square subplots configuration
     ncols = math.ceil(math.sqrt(n_q))
     nrows = math.ceil(n_q / ncols)
 
@@ -55,10 +54,12 @@ def plot_all_dofs(modelname: str, time: np.ndarray, data: np.ndarray,
 
     for i in range(n_q):
         ax = axes[i]
-        if type is 'states':
+        if type == 'states':
             ax.plot(time, data[i, :])
-        elif type is 'controls':
+        elif type == 'controls':
             ax.step(time[0:-6:6], data[i, :])
+        else:
+            raise ValueError("Type must be 'states' or 'controls'")
 
         ax.set_title(names[i], fontsize=9)
         ax.grid(True, alpha=0.3)
