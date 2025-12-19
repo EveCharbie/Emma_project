@@ -156,8 +156,7 @@ def create_hand_root_model(
     )
 
     # Add asymmetric bars for visualization and constraints
-    lower_bar_scs = RotoTransMatrix()
-    lower_bar_scs.from_euler_angles_and_translation(
+    lower_bar_scs = RotoTransMatrix.from_euler_angles_and_translation(
         angle_sequence="xyz",
         angles=np.array([0, 0, 0]),
         translation=np.array([0, 0, 1.55])
@@ -182,8 +181,7 @@ def create_hand_root_model(
         )
     )
 
-    upper_bar_scs = RotoTransMatrix()
-    upper_bar_scs.from_euler_angles_and_translation(
+    upper_bar_scs = RotoTransMatrix.from_euler_angles_and_translation(
         angle_sequence="xyz",
         angles=np.array([0, 0, 0]),
         translation=np.array([0, 1.62, 2.35])
@@ -223,6 +221,8 @@ def create_hand_root_model(
             position=hand_root_model.segments["R_FOOT"].mesh.positions[:, 1]  # End of toes
         )
     )
+
+    # Rotate the root segment
     # hand_root_model.animate()
 
     return hand_root_model
