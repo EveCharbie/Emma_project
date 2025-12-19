@@ -159,7 +159,7 @@ def create_hand_root_model(
     lower_bar_scs = RotoTransMatrix.from_euler_angles_and_translation(
         angle_sequence="xyz",
         angles=np.array([0, 0, 0]),
-        translation=np.array([0, 0, 1.55])
+        translation=np.array([-1.62, 0, 1.55 - 2.35])
     )
     hand_root_model.add_segment(
         SegmentReal(
@@ -170,7 +170,7 @@ def create_hand_root_model(
                 [0, 0, 0],
                 [0, 2.4, 0],
                 [0, 2.4, -1.55]
-            ])),
+            ]).T),
         )
     )
     hand_root_model.segments["LowerBar"].add_marker(
@@ -184,7 +184,7 @@ def create_hand_root_model(
     upper_bar_scs = RotoTransMatrix.from_euler_angles_and_translation(
         angle_sequence="xyz",
         angles=np.array([0, 0, 0]),
-        translation=np.array([0, 1.62, 2.35])
+        translation=np.array([0, 0, 0])
     )
     hand_root_model.add_segment(
         SegmentReal(
@@ -195,7 +195,7 @@ def create_hand_root_model(
                 [0, 0, 0],
                 [0, 2.4, 0],
                 [0, 2.4, -2.35]
-            ])),
+            ]).T),
         )
     )
     hand_root_model.segments["UpperBar"].add_marker(
@@ -222,7 +222,13 @@ def create_hand_root_model(
         )
     )
 
-    # Rotate the root segment
+    # Rotate the shoulder to get an ATR position at start
+    hand_root_model.segments["UPPER_TRUNK"].segment_coordinate_system.scs = RotoTransMatrix.from_euler_angles_and_translation(
+        angle_sequence="xyz",
+        angles=np.array([0, -np.pi, 0]),
+        translation=np.array([0, 0, 0.25857])
+    )
+
     # hand_root_model.animate()
 
     return hand_root_model

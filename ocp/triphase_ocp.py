@@ -169,10 +169,23 @@ def prepare_ocp(
     total_mass = float(bio_model[0].mass()()["mass"])
 
     # Index of useful degrees of freedom
-    names = ["TxHands", "TzHands", "RyHands",
-             "Elbow", "Shoulder", "Back", "LowBack",
-             "RxThighR", "RyThighR", "KneeR", "FootR",
-             "RxThighL", "RyThighL", "KneeL", "FootL"]
+    names = [
+        "TxHands",
+        "TzHands",
+        "RyHands",
+        "Elbow",
+        "Shoulder",
+        "Back",
+        "LowBack",
+        "RxThighR",
+        "RyThighR",
+        "KneeR",
+        "FootR",
+        "RxThighL",
+        "RyThighL",
+        "KneeL",
+        "FootL",
+    ]
     idx = {name: int(i) for i, name in enumerate(names) if name}
 
 
@@ -250,8 +263,8 @@ def prepare_ocp(
         x_bounds.add("qdot", bounds=bio_model[0].bounds_from_ranges("qdot"), phase=phase)
 
     x_bounds[0]["q"][:, 0] = 0
-    x_bounds[0]["q"][idx["RyHands"], 0] = -2*np.pi/45 # hands tilted by 8° at the start
     x_bounds[0]["q"][1, 0] = - total_mass*9.81 / stiffness # equilibrium position
+    x_bounds[0]["q"][idx["RyHands"], 0] = -2*np.pi/45 # hands tilted by 8° at the start
     x_bounds[0]["qdot"][:, 0] = 0  # speeds start at 0
     x_bounds[1]["q"][idx["RyHands"], -1] = -np.pi # end of second phase with hands under the upper bar
 
