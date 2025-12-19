@@ -84,31 +84,41 @@ def create_hand_root_model(
     # Modify the degrees of freedom
     hand_root_model.segments["HANDS"].translations = Translations.XZ
     hand_root_model.segments["HANDS"].rotations = Rotations.Y
+    hand_root_model.segments["HANDS"].dof_names = [
+                                        'HANDS_transX',
+                                         'HANDS_transZ',
+                                         'HANDS_rotY',
+                                                   ]
     hand_root_model.segments["HANDS"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
         min_bound=np.array([-0.3, -0.3, -2*np.pi]),
         max_bound=np.array([0.3, 0.3, 2*np.pi]),
     )
     hand_root_model.segments["LOWER_ARMS"].rotations = Rotations.NONE
+    hand_root_model.segments["LOWER_ARMS"].dof_names = None
     hand_root_model.segments["UPPER_ARMS"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
         min_bound=np.array([-2*np.pi/9]),
         max_bound=np.array([0]),
     )
     hand_root_model.segments["UPPER_TRUNK"].rotations = Rotations.Y
+    hand_root_model.segments["UPPER_TRUNK"].dof_names = ["UPPER_TRUNK_rotY"]
     hand_root_model.segments["UPPER_TRUNK"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
         min_bound=np.array([-2*np.pi/9]),
         max_bound=np.array([0]),
     )
     hand_root_model.segments["MID_TRUNK"].rotations = Rotations.NONE
+    hand_root_model.segments["MID_TRUNK"].dof_names = None
     hand_root_model.segments["LOWER_TRUNK"].rotations = Rotations.Y
+    hand_root_model.segments["LOWER_TRUNK"].dof_names = ["LOWER_TRUNK_rotY"]
     hand_root_model.segments["LOWER_TRUNK"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
         min_bound=np.array([-np.pi/18]),
         max_bound=np.array([np.pi/6]),
     )
     hand_root_model.segments["HEAD"].rotations = Rotations.Y
+    hand_root_model.segments["HEAD"].dof_names = ["HEAD_rotY"]
     hand_root_model.segments["HEAD"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
         min_bound=np.array([-np.pi/3]),
@@ -121,8 +131,8 @@ def create_hand_root_model(
     )
     hand_root_model.segments["R_SHANK"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
-        min_bound=np.array([0, -np.pi / 3]),
-        max_bound=np.array([5*np.pi/6, np.pi / 6]),
+        min_bound=np.array([0]),
+        max_bound=np.array([5*np.pi/6]),
     )
     hand_root_model.segments["R_FOOT"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
@@ -245,7 +255,7 @@ def main():
     with open(f"{model_path}/../model_coefficients.csv", mode="w", newline="") as csv_file:
         writer = csv.writer(csv_file, delimiter=";")
 
-        # En-têtes
+        # Titles
         writer.writerow([
             "ModelNumber",
             "Mass",
