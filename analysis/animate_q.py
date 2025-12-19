@@ -14,11 +14,11 @@ athlete_num = 1
 mode = "base"  # "retroversion"  # "anteversion"  # "base"
 
 CURRENT_DIR = Path(__file__).parent.absolute()
-RESULTS_DIR = f"{CURRENT_DIR}/ocp/results/athlete_{athlete_num:03d}"
-modelname = f"{CURRENT_DIR}/models/biomod_models/athlete_{athlete_num:03d}_deleva.bioMod"
+RESULTS_DIR = f"{CURRENT_DIR}/../ocp/results/athlete_{athlete_num:03d}"
+modelname = f"{CURRENT_DIR}/../models/biomod_models/athlete_{athlete_num:03d}_deleva.bioMod"
 model = BiorbdModel(modelname)
 
-file_pkl = f"{RESULTS_DIR}/athlete{athlete_num:03d}_{mode}_CVG.pkl"
+file_pkl = f"{RESULTS_DIR}/athlete_{athlete_num:03d}_basic_variables_DVG.pkl"
 
 if not os.path.exists(file_pkl) or os.path.getsize(file_pkl) == 0:
     raise FileNotFoundError(f"Fichier absent ou vide: {file_pkl}")
@@ -26,11 +26,10 @@ if not os.path.exists(file_pkl) or os.path.getsize(file_pkl) == 0:
 with open(file_pkl, "rb") as f:
     data = pickle.load(f)
 
-qs    = data["q_all"]
-qdots = data["qdot_all"]
-taus  = data["tau_all"]
-time  = data["time_all"]
-n_shooting = data["n_shooting"]
+qs    = data["q"]
+qdots = data["qdot"]
+taus  = data["tau"]
+time  = data["time"]
 
 
 def plot_all_dofs(modelname: str, time: np.ndarray, data: np.ndarray,

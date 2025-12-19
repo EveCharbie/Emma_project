@@ -460,7 +460,6 @@ def save_sol(sol, filename):
 def main():
 
     CURRENT_DIR = Path(__file__).parent.resolve()
-    RESULTS_DIR = f"{CURRENT_DIR}/results"
     use_pkl = False
 
     n_shooting = (50, 50, 50)
@@ -471,6 +470,7 @@ def main():
         print("model : ", filename)
 
         # initial solution
+        RESULTS_DIR = f"{CURRENT_DIR}/results/athlete_{num:03d}"
         if use_pkl is False or not os.path.exists(f"{RESULTS_DIR}/athlete{num}_base.pkl"):
 
             ocp = prepare_ocp(
