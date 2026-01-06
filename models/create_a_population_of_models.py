@@ -239,23 +239,24 @@ def main():
     current_path = Path(__file__).parent
     model_path = f"{current_path}/biomod_models"
 
-    # Set the range of anthropometry that you want to create
-    # TODO: set these as -std, -1/2std, mean, +1/2std, +std
-    # when only one value, it's the mean coef
-    total_mass = [46.7, 52.8, 61.2, 70.4]  # Kg
-    total_height = [1.53, 1.64, 1.75]  # m
-    ankle_height = [0.03]
-    knee_height_coeff = [0.255, 0.279]
-    hip_height_coeff = [0.495, 0.513]
-    shoulder_height_coeff = [0.792, 0.817, 0.831]
-    shoulder_width_coeff = [0.201]
-    elbow_span_coeff = [0.494, 0.539]
-    wrist_span_coeff = [ 0.804, 0.835]
-    finger_span_coeff = [1.004]
-    foot_length_coeff = [0.106]
-    hip_width_coeff = [0.191]
-    umbilicus_heihgt_coeff = [0.596]
-    xiphoid_height_coeff = [0.739]
+    # mass and height ranges taken from https://gymnastgem.com/average-height-weight/
+    # 42-53 Kg and 1.45-1.60 m -> increased to cover the extreme cases we arte interested in
+    total_mass = np.linspace(42, 52, 4).tolist()  # Kg
+    total_height = np.linspace(1.45, 1.75, 5).tolist()  # m
+    height_distribution = ["normal", "long_trunk", "long_legs", "long_arms"]
+    # TODO: verify that we can justify these coefficents
+    average_ankle_height = 0.03
+    average_knee_height_coeff = 0.267
+    average_hip_height_coeff = 0.504
+    average_shoulder_height_coeff = 0.817
+    average_shoulder_width_coeff = 0.201
+    average_elbow_span_coeff = 0.5165
+    average_wrist_span_coeff = 0.8195
+    average_finger_span_coeff = 1.004
+    average_foot_length_coeff = 0.106
+    average_hip_width_coeff = 0.191
+    average_umbilicus_heihgt_coeff = 0.596
+    average_xiphoid_height_coeff = 0.739
 
     # Create csv file to save which model has which coefficient
     with open(f"{model_path}/../model_coefficients.csv", mode="w", newline="") as csv_file:
@@ -285,35 +286,85 @@ def main():
         for combination in itertools.product(
             total_mass,
             total_height,
-            ankle_height,
-            knee_height_coeff,
-            hip_height_coeff,
-            shoulder_height_coeff,
-            shoulder_width_coeff,
-            elbow_span_coeff,
-            wrist_span_coeff,
-            finger_span_coeff,
-            foot_length_coeff,
-            hip_width_coeff,
-            umbilicus_heihgt_coeff,
-            xiphoid_height_coeff,
+            height_distribution,
         ):
-            (
-                this_mass,
-                this_height,
-                this_ankle_height_coeff,
-                this_knee_height_coeff,
-                this_hip_height_coeff,
-                this_shoulder_height_coeff,
-                this_shoulder_span_coeff,
-                this_elbow_span_coeff,
-                this_wrist_span_coeff,
-                this_finger_span_coeff,
-                this_foot_length_coeff,
-                this_hip_width_coeff,
-                this_umbilicus_height_coeff,
-                this_xiphoid_height_coeff
-            ) = combination
+            this_mass = combination[0]
+            this_height = combination[1]
+            this_distribution = combination[2]
+
+            # Unaffected coefficients
+            this_ankle_height_coeff = average_ankle_height
+            this_foot_length_coeff = average_foot_length_coeff
+            this_hip_width_coeff = average_hip_width_coeff
+            this_shoulder_span_coeff = average_shoulder_width_coeff
+            if this_distribution == "normal":
+                this_knee_height_coeff = average_knee_height_coeff
+                this_hip_height_coeff = average_hip_height_coeff
+                this_shoulder_height_coeff = average_shoulder_height_coeff
+                this_elbow_span_coeff = average_elbow_span_coeff
+                this_wrist_span_coeff = average_wrist_span_coeff
+                this_finger_span_coeff = average_finger_span_coeff
+                this_umbilicus_height_coeff = average_umbilicus_heihgt_coeff
+                this_xiphoid_height_coeff = average_xiphoid_height_coeff
+            elif this_distribution == "long_trunk":
+                # Floor to hip is shorter
+                average_leg_coeff = average_hip_height_coeff
+                short_leg_coeff = average_leg_coeff - 0.05
+                leg_ratio = short_leg_coeff / average_leg_coeff
+                this_knee_height_coeff = leg_ratio * average_knee_height_coeff
+                this_hip_height_coeff = short_leg_coeff
+
+                # Hip to shoulder is longer
+                average_trunk_coeff = average_shoulder_height_coeff - average_hip_height_coeff
+                long_trunk_coeff = average_trunk_coeff + 0.05
+                trunk_ratio = long_trunk_coeff / average_trunk_coeff
+                this_shoulder_height_coeff = this_hip_height_coeff + long_trunk_coeff
+                this_umbilicus_height_coeff = trunk_ratio * (average_umbilicus_heihgt_coeff - average_hip_height_coeff) + this_hip_height_coeff
+                this_xiphoid_height_coeff = trunk_ratio * (average_xiphoid_height_coeff - average_hip_height_coeff) + this_hip_height_coeff
+
+                # Arm span unchanged
+                this_elbow_span_coeff = average_elbow_span_coeff
+                this_wrist_span_coeff = average_wrist_span_coeff
+                this_finger_span_coeff = average_finger_span_coeff
+
+            elif this_distribution == "long_legs":
+                # Floor to hip is longer
+                average_leg_coeff = average_hip_height_coeff
+                long_leg_coeff = average_leg_coeff + 0.05
+                leg_ratio = long_leg_coeff / average_leg_coeff
+                this_knee_height_coeff = leg_ratio * average_knee_height_coeff
+                this_hip_height_coeff = short_leg_coeff
+
+                # Hip to shoulder is shorter
+                average_trunk_coeff = average_shoulder_height_coeff - average_hip_height_coeff
+                short_trunk_coeff = average_trunk_coeff - 0.05
+                trunk_ratio = short_trunk_coeff / average_trunk_coeff
+                this_shoulder_height_coeff = this_hip_height_coeff + long_trunk_coeff
+                this_umbilicus_height_coeff = trunk_ratio * (
+                            average_umbilicus_heihgt_coeff - average_hip_height_coeff) + this_hip_height_coeff
+                this_xiphoid_height_coeff = trunk_ratio * (
+                            average_xiphoid_height_coeff - average_hip_height_coeff) + this_hip_height_coeff
+
+                # Arm span unchanged
+                this_elbow_span_coeff = average_elbow_span_coeff
+                this_wrist_span_coeff = average_wrist_span_coeff
+                this_finger_span_coeff = average_finger_span_coeff
+
+            elif this_distribution == "long_arms":
+                # Legs and trunk unchanged
+                this_knee_height_coeff = average_knee_height_coeff
+                this_hip_height_coeff = average_hip_height_coeff
+                this_shoulder_height_coeff = average_shoulder_height_coeff
+                this_umbilicus_height_coeff = average_umbilicus_heihgt_coeff
+                this_xiphoid_height_coeff = average_xiphoid_height_coeff
+
+                # Arm longer
+                average_arm_coeff = average_finger_span_coeff
+                long_arm_coeff = average_arm_coeff + 0.05
+                arm_ratio = long_arm_coeff / average_arm_coeff
+                this_elbow_span_coeff = average_elbow_span_coeff * arm_ratio
+                this_wrist_span_coeff = average_wrist_span_coeff * arm_ratio
+                this_finger_span_coeff = average_finger_span_coeff * arm_ratio
 
             # Get the measurements for this model
             this_ankle_height = this_ankle_height_coeff * this_height

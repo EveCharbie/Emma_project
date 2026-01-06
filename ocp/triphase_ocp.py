@@ -477,7 +477,7 @@ def main():
 
     n_shooting = (50, 50, 50)
 
-    for num in [1]:    #range(576):
+    for num in [80]:    #range(576):
 
         filename = f"{CURRENT_DIR}/../models/biomod_models/athlete_{num:03d}_deleva.bioMod"
         print("model : ", filename)

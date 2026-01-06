@@ -18,7 +18,7 @@ RESULTS_DIR = f"{CURRENT_DIR}/../ocp/results/athlete_{athlete_num:03d}"
 modelname = f"{CURRENT_DIR}/../models/biomod_models/athlete_{athlete_num:03d}_deleva.bioMod"
 model = BiorbdModel(modelname)
 
-file_pkl = f"{RESULTS_DIR}/athlete_{athlete_num:03d}_basic_variables_DVG.pkl"
+file_pkl = f"{RESULTS_DIR}/athlete_{athlete_num:03d}_basic_variables_CVG.pkl"
 
 if not os.path.exists(file_pkl) or os.path.getsize(file_pkl) == 0:
     raise FileNotFoundError(f"Fichier absent ou vide: {file_pkl}")
