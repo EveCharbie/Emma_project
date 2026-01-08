@@ -519,6 +519,10 @@ def main():
             sol = ocp.solve(solver)
             print("solving finished")
 
+            # Create the folder if it does not exist
+            if not os.path.exists(RESULTS_DIR):
+                os.mkdir(RESULTS_DIR)
+
             save_sol(sol, f"{RESULTS_DIR}/athlete_{num:03d}")
 
 
