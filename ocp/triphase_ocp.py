@@ -176,7 +176,6 @@ def prepare_ocp(
         "Elbow",
         "Shoulder",
         "Back",
-        "LowBack",
         "RxThighR",
         "RyThighR",
         "KneeR",

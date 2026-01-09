@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import pickle
 
-athlete_num = 1
+athlete_num = 80
 mode = "base"  # "retroversion"  # "anteversion"  # "base"
 
 CURRENT_DIR = Path(__file__).parent.absolute()

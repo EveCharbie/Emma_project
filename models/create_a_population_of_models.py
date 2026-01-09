@@ -229,6 +229,12 @@ def create_hand_root_model(
         translation=np.array([0, 0, 0.25857])
     )
 
+    # Remove neck DoF
+    hand_root_model.segments["HEAD"].q_ranges = None
+    hand_root_model.segments["HEAD"].qdot_ranges = None
+    hand_root_model.segments["HEAD"].rotations = Rotations.NONE
+    hand_root_model.segments["HEAD"].dof_names = None
+
     # hand_root_model.animate()
 
     return hand_root_model
