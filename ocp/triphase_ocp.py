@@ -201,21 +201,22 @@ def prepare_ocp(
             objective_functions.add(ObjectiveFcn.Lagrange.MINIMIZE_STATE, key="qdot", weight=1, derivative=True, phase=phase)
 
             # FIG code specifications (knees, elbows and ankles flexion and thighs abduction)
-            weights = {"Elbow": 5, "KneeR": 10, "FootR": 2}
+            # weights = {"Elbow": 5, "KneeR": 10, "FootR": 2}  # Emma's coefs
+            weights = {"Elbow": 5, "KneeR": 50, "FootR": 20}
 
             for name, w in weights.items():
                 objective_functions.add(ObjectiveFcn.Lagrange.TRACK_STATE,
-                    key="q", index=idx[name],target=0,weight=w * coef_fig,phase=phase)
+                    key="q", index=idx[name], target=0, weight=w * coef_fig,phase=phase)
 
         leg_weight = np.hstack((3*np.ones(26), np.zeros(25)))
-        objective_functions.add(ObjectiveFcn.Mayer.MINIMIZE_STATE, key="q", index=idx["RxThighR"], node=Node.ALL,weight=ObjectiveWeight(leg_weight, interpolation=InterpolationType.EACH_FRAME))
+        objective_functions.add(ObjectiveFcn.Mayer.MINIMIZE_STATE, key="q", index=idx["RxThighR"], node=Node.ALL, weight=ObjectiveWeight(leg_weight, interpolation=InterpolationType.LINEAR))
         objective_functions.add(ObjectiveFcn.Lagrange.TRACK_STATE, key="q", index=idx["RxThighR"], target=0, weight=3*coef_fig, phase=2)
 
     # Dynamics
     dynamics = DynamicsOptionsList()
     for phase in range(3):
         dynamics.add(DynamicsOptions(
-            expand_dynamics=False,
+            expand_dynamics=True,
             phase_dynamics=phase_dynamics,
             ode_solver=OdeSolver.COLLOCATION(method="radau", polynomial_degree=5)
         ))
@@ -240,12 +241,13 @@ def prepare_ocp(
     constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.END, first_marker="LowerBarMarker",
                         second_marker="R_TOES", axes=Axis.Z, phase=0, min_bound=0.02, max_bound=0.02)
 
-    #  symmetry of the thighs
+    #  symmetry of the thighs + continuous spine bending
     pairs = [
         ("RxThighR", "RxThighL", -1),
         ("RyThighR", "RyThighL", 1),
         ("KneeR", "KneeL", 1),
         ("FootR", "FootL", 1),
+        ("RyThighR", "Back", 1),
     ]
 
     for phase in range(3):
@@ -334,21 +336,21 @@ def save_sol(sol, filename):
     else:
         savename_sufix = "_DVG.pkl"
 
-    # Get the Bioptim version used to generate the results
-    repo = git.Repo(search_parent_directories=True)
-    commit_id = str(repo.commit())
-    branch = str(repo.active_branch)
-    # tag = repo.git.describe("--tags")
-    bioptim_version = repo.git.version_info
-    git_date = repo.git.log("-1", "--format=%cd")
-    version_dic = {
-        "commit_id": commit_id,
-        "git_date": git_date,
-        "branch": branch,
-        # "tag": tag,
-        "bioptim_version": bioptim_version,
-        "date_of_the_optimization": date.today().strftime("%b-%d-%Y-%H-%M-%S"),
-    }
+    # # Get the Bioptim version used to generate the results
+    # repo = git.Repo(search_parent_directories=True)
+    # commit_id = str(repo.commit())
+    # branch = str(repo.active_branch)
+    # # tag = repo.git.describe("--tags")
+    # bioptim_version = repo.git.version_info
+    # git_date = repo.git.log("-1", "--format=%cd")
+    # version_dic = {
+    #     "commit_id": commit_id,
+    #     "git_date": git_date,
+    #     "branch": branch,
+    #     # "tag": tag,
+    #     "bioptim_version": bioptim_version,
+    #     "date_of_the_optimization": date.today().strftime("%b-%d-%Y-%H-%M-%S"),
+    # }
 
     # --- Save the basic variables for "warm-start" from the solution --- #
     time = sol.stepwise_time(to_merge=[SolutionMerge.NODES, SolutionMerge.PHASES]).T[0]
@@ -367,7 +369,7 @@ def save_sol(sol, filename):
             "time": time,
             "q": qs, "qdot": qdots,
             "tau": taus,
-            "version_dic": version_dic,
+            # "version_dic": version_dic,
         }
         pickle.dump(data, file)
     print("initial solution saved")
@@ -424,7 +426,7 @@ def save_sol(sol, filename):
             sol.print_cost()  # TODO: but in any ways, the output of print is often buggy
 
     data["status"] = sol.status
-    data["version_dic"] = version_dic
+    # data["version_dic"] = version_dic
     data["real_time_to_optimize"] = sol.real_time_to_optimize
     data["constraints"] = sol.constraints
     data["lam_g"] = sol.lam_g
@@ -496,7 +498,7 @@ def main():
                 weight_control=1,
                 weight_time=0.1,
                 final_state_bound=True,
-                n_threads=16,
+                n_threads=32,
             )
             #todo compare final_state_bound=True vs False ... False should be faster
             # --- Live plots --- #
