@@ -270,10 +270,12 @@ def prepare_ocp(
     x_bounds[1]["q"][idx["RyHands"], -1] = -np.pi # end of second phase with hands under the upper bar
 
     if final_state_bound:
+        x_bounds[2]["q"][idx["TxHands"], -1] = 0  # End with the hands on the bar
         x_bounds[2]["q"][3:, -1] = 0
         x_bounds[2]["q"][idx["RyHands"], -1] = -2 * np.pi   # ends with hands 360° rotated
         x_bounds[2]["qdot"][idx["RyHands"], -1] = - np.pi  # ends with hands speed of pi rad/s
-    else : 
+    else :
+        raise RuntimeError("I did not maintain this version, so please make sure you do it !")
         idx_final_state = np.arange(idx["RyHands"]+1, idx["FootL"]+1) # index to constraint to 0 in the final state (all except those of the hands)
         constraint_list.add(ConstraintFcn.BOUND_STATE, key="q", node=Node.END, index=idx["RyHands"], min_bound=-2 * np.pi, max_bound=-2 * np.pi, phase=2)
         constraint_list.add(ConstraintFcn.BOUND_STATE, key="q", node=Node.END, index=idx_final_state, min_bound=0, max_bound=0, phase=2)
