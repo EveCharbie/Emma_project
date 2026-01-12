@@ -229,11 +229,13 @@ def prepare_ocp(
 
     # Constraints
     constraint_list = ConstraintList()
-    if init_sol is False:
-        # avoid the lower bar
-        constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.ALL, first_marker="LowerBarMarker",
-                            second_marker="R_TOES", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=1)
+    # avoid the lower bar
+    constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.ALL, first_marker="LowerBarMarker",
+                        second_marker="R_TOES", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=1)
+    constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.ALL, first_marker="LowerBarMarker",
+                        second_marker="R_HEEL", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=1)
 
+    if init_sol is False:
         # impose the orientation of the pelvic during the descent phase
         if mode == "anteversion":
             constraint_list.add(ConstraintFcn.TRACK_MARKERS, phase=0, node=Node.ALL, reference_jcs=idx["back"],
@@ -244,7 +246,7 @@ def prepare_ocp(
 
     # end of the first phase when the feet reach the height of the lower bar
     constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.END, first_marker="LowerBarMarker",
-                        second_marker="R_TOES", axes=Axis.Z, phase=0, min_bound=0.02, max_bound=0.02)
+                        second_marker="R_HEEL", axes=Axis.Z, phase=0, min_bound=0.02, max_bound=0.02)
 
     #  symmetry of the thighs + continuous spine bending
     pairs = [

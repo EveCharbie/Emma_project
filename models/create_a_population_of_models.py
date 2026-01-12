@@ -221,6 +221,20 @@ def create_hand_root_model(
             position=hand_root_model.segments["R_FOOT"].mesh.positions[:, 1]  # End of toes
         )
     )
+    hand_root_model.segments["L_FOOT"].add_marker(
+        MarkerReal(
+            name="L_HEEL",
+            parent_name="L_FOOT",
+            position=np.array([0, 0, 0]),
+        )
+    )
+    hand_root_model.segments["R_FOOT"].add_marker(
+        MarkerReal(
+            name="R_HEEL",
+            parent_name="R_FOOT",
+            position=np.array([0, 0, 0]),
+        )
+    )
 
     # Rotate the shoulder to get an ATR position at start
     hand_root_model.segments["UPPER_TRUNK"].segment_coordinate_system.scs = RotoTransMatrix.from_euler_angles_and_translation(
