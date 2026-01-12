@@ -202,13 +202,18 @@ def prepare_ocp(
 
             # FIG code specifications (knees, elbows and ankles flexion and thighs abduction)
             # weights = {"Elbow": 5, "KneeR": 10, "FootR": 2}  # Emma's coefs
-            weights = {"Elbow": 5, "KneeR": 50, "FootR": 20}
+            weights = {"Elbow": 5, "KneeR": 100, "FootR": 20}
 
             for name, w in weights.items():
+                if name == "FootR":
+                    target = np.pi/2  # Pointed toes
+                else:
+                    target = 0
                 objective_functions.add(ObjectiveFcn.Lagrange.TRACK_STATE,
-                    key="q", index=idx[name], target=0, weight=w * coef_fig,phase=phase)
+                    key="q", index=idx[name], target=target, weight=w * coef_fig, phase=phase)
 
-        leg_weight = np.hstack((3*np.ones(26), np.zeros(25)))
+
+        leg_weight = np.hstack((0.5 * np.ones(bio_model[0].nb_q), np.zeros(bio_model[0].nb_q)))
         objective_functions.add(ObjectiveFcn.Mayer.MINIMIZE_STATE, key="q", index=idx["RxThighR"], node=Node.ALL, weight=ObjectiveWeight(leg_weight, interpolation=InterpolationType.LINEAR))
         objective_functions.add(ObjectiveFcn.Lagrange.TRACK_STATE, key="q", index=idx["RxThighR"], target=0, weight=3*coef_fig, phase=2)
 
@@ -266,6 +271,8 @@ def prepare_ocp(
     x_bounds[0]["q"][:, 0] = 0
     x_bounds[0]["q"][1, 0] = - total_mass*9.81 / stiffness # equilibrium position
     x_bounds[0]["q"][idx["RyHands"], 0] = -2*np.pi/45 # hands tilted by 8° at the start
+    x_bounds[0]["q"][idx["FootR"], 0] = np.pi/2 # Pointed toes
+    x_bounds[0]["q"][idx["FootL"], 0] = np.pi/2 # Pointed toes
     x_bounds[0]["qdot"][:, 0] = 0  # speeds start at 0
     x_bounds[1]["q"][idx["RyHands"], -1] = -np.pi # end of second phase with hands under the upper bar
 
@@ -303,6 +310,8 @@ def prepare_ocp(
         x_init = InitialGuessList()
         for phase in range(3):
             init_q = np.zeros((bio_model[0].nb_q, 2))
+            init_q[idx["FootR"], :] = np.pi/2
+            init_q[idx["FootL"], :] = np.pi/2
             init_q[idx["RyHands"],0] = rotations[phase]
             init_q[idx["RyHands"],1] = rotations[phase+1]
 

@@ -136,8 +136,8 @@ def create_hand_root_model(
     )
     hand_root_model.segments["R_FOOT"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
-        min_bound=np.array([-np.pi / 2]),
-        max_bound=np.array([0]),
+        min_bound=np.array([0]),
+        max_bound=np.array([np.pi/2]),
     )
     hand_root_model.segments["L_THIGH"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
@@ -151,8 +151,8 @@ def create_hand_root_model(
     )
     hand_root_model.segments["L_FOOT"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
-        min_bound=np.array([-np.pi/2]),
-        max_bound=np.array([0]),
+        min_bound=np.array([0]),
+        max_bound=np.array([np.pi/2]),
     )
 
     # Add asymmetric bars for visualization and constraints
