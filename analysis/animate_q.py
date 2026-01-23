@@ -11,14 +11,14 @@ from pathlib import Path
 import pickle
 
 athlete_num = 80
-mode = "base"  # "retroversion"  # "anteversion"  # "base"
+mode = ""  # "_retroversion"  # "_anteversion"  # ""
 
 CURRENT_DIR = Path(__file__).parent.absolute()
 RESULTS_DIR = f"{CURRENT_DIR}/../ocp/results/athlete_{athlete_num:03d}"
 modelname = f"{CURRENT_DIR}/../models/biomod_models/athlete_{athlete_num:03d}_deleva.bioMod"
 model = BiorbdModel(modelname)
 
-file_pkl = f"{RESULTS_DIR}/athlete_{athlete_num:03d}_basic_variables_CVG.pkl"
+file_pkl = f"{RESULTS_DIR}/athlete_{athlete_num:03d}{mode}_basic_variables_CVG.pkl"
 
 if not os.path.exists(file_pkl) or os.path.getsize(file_pkl) == 0:
     raise FileNotFoundError(f"Fichier absent ou vide: {file_pkl}")
@@ -73,9 +73,9 @@ def plot_all_dofs(modelname: str, time: np.ndarray, data: np.ndarray,
     axes[max(0, n_q-1)].set_xlabel("Time [s]")
     plt.show()
 
-plot_all_dofs(modelname, time,qs, type='states', title="q")
-plot_all_dofs(modelname, time,qdots,type='states',title="qdot")
-plot_all_dofs(modelname, time, taus, type='controls',title="tau")
+# plot_all_dofs(modelname, time,qs, type='states', title="q")
+# plot_all_dofs(modelname, time,qdots,type='states',title="qdot")
+# plot_all_dofs(modelname, time, taus, type='controls',title="tau")
 
 
 viz = PhaseRerun(time)

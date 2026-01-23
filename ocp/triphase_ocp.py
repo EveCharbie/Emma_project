@@ -194,28 +194,51 @@ def prepare_ocp(
         objective_functions.add(ObjectiveFcn.Lagrange.MINIMIZE_CONTROL, key="tau", quadratic=True, weight=weight_control, phase=phase)
         objective_functions.add(ObjectiveFcn.Mayer.MINIMIZE_TIME, weight=weight_time, min_bound=min_time, max_bound=max_time,phase=phase)
 
+    # FIG code specifications (knees, elbows and ankles flexion and thighs abduction)
+    weights = {"Elbow": 5, "KneeR": 10, "FootR": 2}  # Emma's coefs
+    # weights = {"Elbow": 20, "KneeR": 100, "FootR": 20}
 
     if init_sol is False:
+
         for phase in range(3):
             # to stabilize the movement
-            objective_functions.add(ObjectiveFcn.Lagrange.MINIMIZE_STATE, key="qdot", weight=1, derivative=True, phase=phase)
-
-            # FIG code specifications (knees, elbows and ankles flexion and thighs abduction)
-            # weights = {"Elbow": 5, "KneeR": 10, "FootR": 2}  # Emma's coefs
-            weights = {"Elbow": 5, "KneeR": 100, "FootR": 20}
+            objective_functions.add(ObjectiveFcn.Lagrange.MINIMIZE_STATE, key="qdot", weight=1, derivative=True,
+                                    phase=phase)
 
             for name, w in weights.items():
                 if name == "FootR":
-                    target = np.pi/2  # Pointed toes
+                    target = np.pi / 2  # Pointed toes
                 else:
                     target = 0
                 objective_functions.add(ObjectiveFcn.Lagrange.TRACK_STATE,
-                    key="q", index=idx[name], target=target, weight=w * coef_fig, phase=phase)
+                                        key="q", index=idx[name], target=target, weight=w * coef_fig, phase=phase)
 
-
-        leg_weight = np.hstack((0.5 * np.ones(bio_model[0].nb_q), np.zeros(bio_model[0].nb_q)))
-        objective_functions.add(ObjectiveFcn.Mayer.MINIMIZE_STATE, key="q", index=idx["RxThighR"], node=Node.ALL, weight=ObjectiveWeight(leg_weight, interpolation=InterpolationType.LINEAR))
-        objective_functions.add(ObjectiveFcn.Lagrange.TRACK_STATE, key="q", index=idx["RxThighR"], target=0, weight=3*coef_fig, phase=2)
+        leg_weight_0 = np.array([3*coef_fig, 0])
+        objective_functions.add(
+            ObjectiveFcn.Mayer.MINIMIZE_STATE,
+            key="q",
+            index=idx["RxThighR"],
+            node=Node.ALL,
+            weight=ObjectiveWeight(leg_weight_0, interpolation=InterpolationType.LINEAR),
+            phase=0,
+        )
+        leg_weight_1 = np.array([0, 3*coef_fig])
+        objective_functions.add(
+            ObjectiveFcn.Mayer.MINIMIZE_STATE,
+            key="q",
+            index=idx["RxThighR"],
+            node=Node.ALL,
+            weight=ObjectiveWeight(leg_weight_1, interpolation=InterpolationType.LINEAR),
+            phase=1,
+        )
+        objective_functions.add(
+            ObjectiveFcn.Mayer.MINIMIZE_STATE,
+            key="q",
+            index=idx["RxThighR"],
+            node=Node.ALL,
+            weight=3*coef_fig,
+            phase=2,
+        )
 
     # Dynamics
     dynamics = DynamicsOptionsList()
@@ -229,19 +252,20 @@ def prepare_ocp(
 
     # Constraints
     constraint_list = ConstraintList()
-    # avoid the lower bar
-    constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.ALL, first_marker="LowerBarMarker",
-                        second_marker="R_TOES", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=1)
-    constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.ALL, first_marker="LowerBarMarker",
-                        second_marker="R_HEEL", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=1)
 
     if init_sol is False:
+        # avoid the lower bar
+        constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.ALL, first_marker="LowerBarMarker",
+                            second_marker="R_TOES", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=0)
+        constraint_list.add(ConstraintFcn.SUPERIMPOSE_MARKERS, node=Node.ALL, first_marker="LowerBarMarker",
+                            second_marker="R_HEEL", min_bound=0.02, max_bound=np.inf, axes=Axis.X, phase=0)
+
         # impose the orientation of the pelvic during the descent phase
         if mode == "anteversion":
-            constraint_list.add(ConstraintFcn.TRACK_MARKERS, phase=0, node=Node.ALL, reference_jcs=idx["back"],
+            constraint_list.add(ConstraintFcn.TRACK_MARKERS, phase=0, node=Node.ALL, reference_jcs=idx["Back"],
                                 marker_index=3, axes=Axis.X, min_bound=-np.inf, max_bound=0, )
         elif mode == "retroversion":
-            constraint_list.add(ConstraintFcn.TRACK_MARKERS, phase=0, node=Node.ALL, reference_jcs=idx["back"],
+            constraint_list.add(ConstraintFcn.TRACK_MARKERS, phase=0, node=Node.ALL, reference_jcs=idx["Back"],
                                 marker_index=3, axes=Axis.X, min_bound=0, max_bound= np.inf,)
 
     # end of the first phase when the feet reach the height of the lower bar
@@ -276,12 +300,15 @@ def prepare_ocp(
     x_bounds[0]["q"][idx["FootR"], 0] = np.pi/2 # Pointed toes
     x_bounds[0]["q"][idx["FootL"], 0] = np.pi/2 # Pointed toes
     x_bounds[0]["qdot"][:, 0] = 0  # speeds start at 0
+    x_bounds[0]["qdot"][idx["RyHands"], 0] = -np.pi/4  # Give a little rotation velocity at the beginning
     x_bounds[1]["q"][idx["RyHands"], -1] = -np.pi # end of second phase with hands under the upper bar
 
     if final_state_bound:
         x_bounds[2]["q"][idx["TxHands"], -1] = 0  # End with the hands on the bar
         x_bounds[2]["q"][3:, -1] = 0
         x_bounds[2]["q"][idx["RyHands"], -1] = -2 * np.pi   # ends with hands 360° rotated
+        x_bounds[2]["q"][idx["FootR"], -1] = np.pi / 2  # Pointed toes
+        x_bounds[2]["q"][idx["FootL"], -1] = np.pi / 2  # Pointed toes
         x_bounds[2]["qdot"][idx["RyHands"], -1] = - np.pi  # ends with hands speed of pi rad/s
     else :
         raise RuntimeError("I did not maintain this version, so please make sure you do it !")
@@ -385,7 +412,7 @@ def save_sol(sol, filename):
             # "version_dic": version_dic,
         }
         pickle.dump(data, file)
-    print("initial solution saved")
+    print("solution saved")
 
     # --- Save more complete data for a posteriori analysis --- #
     data = {}
@@ -463,16 +490,18 @@ def save_sol(sol, filename):
     data["time_total"] = time_total
     data["time_end_phase"] = time_end_phase
 
-    integrated_sol = sol.integrate(integrator=SolutionIntegrator.SCIPY_DOP853, to_merge=SolutionMerge.NODES)
-
-    qs_integrated = integrated_sol[0]['q']
-    qdots_integrated = integrated_sol[0]['qdot']
-    for i in range(1, len(integrated_sol)):
-        qs_integrated = np.hstack((qs_integrated, integrated_sol[i]['q']))
-        qdots_integrated = np.hstack((qdots_integrated, integrated_sol[i]['qdot']))
-
-    data["qs_integrated"] = qs_integrated
-    data["qdots_integrated"] = qdots_integrated
+    # # DOP853/RK45 does not seem to converge :(
+    # # integrated_sol = sol.integrate(integrator=SolutionIntegrator.SCIPY_DOP853, to_merge=SolutionMerge.NODES)
+    # integrated_sol = sol.integrate(integrator=SolutionIntegrator.SCIPY_BDF, to_merge=SolutionMerge.NODES)
+    #
+    # qs_integrated = integrated_sol[0]['q']
+    # qdots_integrated = integrated_sol[0]['qdot']
+    # for i in range(1, len(integrated_sol)):
+    #     qs_integrated = np.hstack((qs_integrated, integrated_sol[i]['q']))
+    #     qdots_integrated = np.hstack((qdots_integrated, integrated_sol[i]['qdot']))
+    #
+    # data["qs_integrated"] = qs_integrated
+    # data["qdots_integrated"] = qdots_integrated
 
     with open(filename + "_full_results" + savename_sufix, "wb") as file:
         pickle.dump(data, file)
@@ -487,9 +516,10 @@ def save_sol(sol, filename):
 def main():
 
     CURRENT_DIR = Path(__file__).parent.resolve()
-    use_pkl = False
+    use_pkl = True
 
     n_shooting = (50, 50, 50)
+    final_time = (1, 0.5, 1)
 
     for num in [80]:    #range(576):
 
@@ -498,11 +528,11 @@ def main():
 
         # initial solution
         RESULTS_DIR = f"{CURRENT_DIR}/results/athlete_{num:03d}"
-        if use_pkl is False or not os.path.exists(f"{RESULTS_DIR}/athlete{num}_base.pkl"):
+        if use_pkl is False or not os.path.exists(f"{RESULTS_DIR}/athlete_{num:03d}_basic_variables_CVG.pkl"):
 
             ocp = prepare_ocp(
                 biorbd_model_path=filename,
-                final_time=(1, 0.5, 1),
+                final_time=final_time,
                 n_shooting=n_shooting,
                 min_time=0.2,
                 max_time=2,
@@ -529,9 +559,9 @@ def main():
             # solver.set_tol(1e-3)
             solver.set_maximum_iterations(20000)
 
-            print("start solving")
+            print("start solving unconstrained optim")
             sol = ocp.solve(solver)
-            print("solving finished")
+            print("solving unconstrained finished")
 
             # Create the folder if it does not exist
             if not os.path.exists(RESULTS_DIR):
@@ -541,7 +571,7 @@ def main():
 
 
         ######################################################################################################################################################
-        print("load initial solution")
+        print("load unconstrained solution")
         with open(f"{RESULTS_DIR}/athlete_{num:03d}_basic_variables_CVG.pkl", "rb") as file:
             prev_sol_data = pickle.load(file)
 
@@ -563,31 +593,44 @@ def main():
             u_init.add("tau", taus[:, ua:ub], InterpolationType.EACH_FRAME, phase=p)
 
 
-        for mode in ['anterversion', 'retroversion']:
+        for mode in ['anteversion', 'retroversion']:
 
-            if use_pkl is False or not os.path.exists(f"{RESULTS_DIR}/athlete_{num:03d}_full_{mode}_basic_variables_CVG.pkl"):
+            if use_pkl is False or not os.path.exists(f"{RESULTS_DIR}/athlete_{num:03d}_{mode}_basic_variables_CVG.pkl"):
                 #mode = "retroversion" # "anteversion"
 
                 # solution complete
-                ocp = prepare_ocp(biorbd_model_path=CURRENT_DIR + filename, final_time=(1, 0.5, 1), n_shooting=n_shooting,
-                                  min_time=0.01, max_time=2, init_sol=False, weight_control=0.0001, weight_time=1,
-                                  coef_fig=1,final_state_bound=False, mode=mode, n_threads=16)
+                ocp = prepare_ocp(
+                    biorbd_model_path=filename,
+                    final_time=final_time,
+                    n_shooting=n_shooting,
+                    min_time=0.01,
+                    max_time=2,
+                    init_sol=False,
+                    weight_control=0.0001,
+                    weight_time=1,
+                    coef_fig=1,
+                    final_state_bound=True,
+                    mode=mode,
+                    n_threads=16,
+                )
 
 
                 # --- Live plots --- #
                 ocp.add_plot_penalty(CostType.ALL)  # This will display the objectives and constraints at the current iteration
 
-                # --- Print ocp structure --- #
-                ocp.print(to_console=False, to_graph=False)
+                # # --- Print ocp structure --- #
+                # ocp.print(to_console=False, to_graph=False)
 
                 # --- Solve the ocp --- #
                 solver = Solver.IPOPT()
                 solver.set_linear_solver("ma57")
                 solver.set_maximum_iterations(20000)
+
+                print(f"Started solving {mode}")
                 sol = ocp.solve(solver)
 
-                save_sol(sol, f"{RESULTS_DIR}/athlete_{num:03d}_full_{mode}")
-                print("object solution of full solution saved")
+                save_sol(sol, f"{RESULTS_DIR}/athlete_{num:03d}_{mode}")
+                print(f"object solution of {mode} solution saved")
 
             # --- Animate the solution --- #
             if num == 500:

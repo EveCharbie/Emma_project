@@ -98,8 +98,8 @@ def create_hand_root_model(
     hand_root_model.segments["LOWER_ARMS"].dof_names = None
     hand_root_model.segments["UPPER_ARMS"].q_ranges = RangeOfMotion(
         range_type=Ranges.Q,
-        min_bound=np.array([-2*np.pi/9]),
-        max_bound=np.array([0]),
+        min_bound=np.array([0]),
+        max_bound=np.array([2*np.pi/9]),
     )
     hand_root_model.segments["UPPER_TRUNK"].rotations = Rotations.Y
     hand_root_model.segments["UPPER_TRUNK"].dof_names = ["UPPER_TRUNK_rotY"]
