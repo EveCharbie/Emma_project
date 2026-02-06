@@ -198,21 +198,20 @@ def prepare_ocp(
     weights = {"Elbow": 5, "KneeR": 10, "FootR": 2}  # Emma's coefs
     # weights = {"Elbow": 20, "KneeR": 100, "FootR": 20}
 
+    for phase in range(3):
+        # to stabilize the movement
+        objective_functions.add(ObjectiveFcn.Lagrange.MINIMIZE_STATE, key="qdot", weight=1, derivative=True,
+                                phase=phase)
+
+        for name, w in weights.items():
+            if name == "FootR":
+                target = np.pi / 2  # Pointed toes
+            else:
+                target = 0
+            objective_functions.add(ObjectiveFcn.Lagrange.TRACK_STATE,
+                                    key="q", index=idx[name], target=target, weight=w * coef_fig, phase=phase)
+
     if init_sol is False:
-
-        for phase in range(3):
-            # to stabilize the movement
-            objective_functions.add(ObjectiveFcn.Lagrange.MINIMIZE_STATE, key="qdot", weight=1, derivative=True,
-                                    phase=phase)
-
-            for name, w in weights.items():
-                if name == "FootR":
-                    target = np.pi / 2  # Pointed toes
-                else:
-                    target = 0
-                objective_functions.add(ObjectiveFcn.Lagrange.TRACK_STATE,
-                                        key="q", index=idx[name], target=target, weight=w * coef_fig, phase=phase)
-
         leg_weight_0 = np.array([3*coef_fig, 0])
         objective_functions.add(
             ObjectiveFcn.Mayer.MINIMIZE_STATE,
@@ -296,12 +295,15 @@ def prepare_ocp(
 
     x_bounds[0]["q"][:, 0] = 0
     x_bounds[0]["q"][1, 0] = - total_mass*9.81 / stiffness # equilibrium position
+    x_bounds[0]["q"].max[idx["RyHands"], :] = 0
     x_bounds[0]["q"][idx["RyHands"], 0] = -2*np.pi/45 # hands tilted by 8° at the start
     x_bounds[0]["q"][idx["FootR"], 0] = np.pi/2 # Pointed toes
     x_bounds[0]["q"][idx["FootL"], 0] = np.pi/2 # Pointed toes
     x_bounds[0]["qdot"][:, 0] = 0  # speeds start at 0
     x_bounds[0]["qdot"][idx["RyHands"], 0] = -np.pi/4  # Give a little rotation velocity at the beginning
     x_bounds[1]["q"][idx["RyHands"], -1] = -np.pi # end of second phase with hands under the upper bar
+    x_bounds[1]["q"].max[idx["RyHands"], :] = 0
+    x_bounds[2]["q"].max[idx["RyHands"], :] = 0
 
     if final_state_bound:
         x_bounds[2]["q"][idx["TxHands"], -1] = 0  # End with the hands on the bar
